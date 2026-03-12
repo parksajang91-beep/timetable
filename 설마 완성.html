@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <title>TIMETABLE</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: #0a0a0f;
+      min-height: 100vh;
+      color: white;
+    }
+    
+    /* 헤더 */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 25px;
+      background: #1a1a25;
+      border-bottom: 1px solid #333;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .menu-btn {
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+    .header-time {
+      font-size: 16px;
+      color: #888;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      color: #888;
+      font-size: 14px;
+    }
+    
+    /* 메인 컨테이너 */
+    .main-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      padding: 20px;
+      max-width: 1600px;
+      margin: 0 auto;
+      min-height: calc(100vh - 60px);
+    }
+    
+    /* 왼쪽: 스케줄 */
+    .schedule-section {
+      background: #12121a;
+      border-radius: 15px;
+      padding: 20px;
+      border: 1px solid #2a2a3a;
+    }
+    .section-header {
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .section-subtitle {
+      font-size: 12px;
+      color: #666;
+      margin-top: 3px;
+    }
+    
+    /* 타임라인 */
+    .timeline {
+      position: relative;
+    }
+    .time-slot {
+      display: flex;
+      align-items: flex-start;
+      min-height: 70px;
+      position: relative;
+    }
+    .time-label {
+      width: 50px;
+      font-size: 12px;
+      color: #555;
+      padding-top: 5px;
+    }
+    .schedule-item {
+      flex: 1;
+      margin: 5px 0;
+      padding: 12px 15px;
+      border-radius: 10px;
+      border-left: 4px solid;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .schedule-item:hover {
+      transform: translateX(5px);
+    }
+    .schedule-item.blue {
+      background: rgba(0, 150, 255, 0.15);
+      border-left-color: #00aaff;
+    }
+    .schedule-item.pink {
+      background: rgba(255, 100, 150, 0.15);
+      border-left-color: #ff6699;
+    }
+    .schedule-item.green {
+      background: rgba(100, 255, 150, 0.15);
+      border-left-color: #66ff99;
+    }
+    .schedule-item.orange {
+      background: rgba(255, 180, 100, 0.15);
+      border-left-color: #ffaa55;
+    }
+    .schedule-item.purple {
+      background: rgba(180, 100, 255, 0.15);
+      border-left-color: #aa66ff;
+    }
+    .schedule-item.active {
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    }
+    .schedule-item.active::after {
+      content: 'NOW';
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #ff6699;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: bold;
+    }
+    .item-icon {
+      font-size: 16px;
+      margin-right: 8px;
+    }
+    .item-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+    }
+    .item-time {
+      font-size: 11px;
+      color: #888;
+      margin-top: 3px;
+    }
+    
+    /* 진행률 바 */
+    .progress-bar {
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 1s;
+    }
+    .blue .progress-fill { background: #00aaff; }
+    .pink .progress-fill { background: #ff6699; }
+    .green .progress-fill { background: #66ff99; }
+    .orange .progress-fill { background: #ffaa55; }
+    .purple .progress-fill { background: #aa66ff; }
+    
+    /* 가운데: 시계 & 채팅 */
+    .center-section {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .clock-card {
+      background: #12121a;
+      border-radius: 15px;
+      padding: 40px 20px;
+      text-align: center;
+      border: 1px solid #2a2a3a;
+    }
+    #time {
+      font-size: 80px;
+      font-weight: 300;
+      color: #fff;
+      letter-spacing: 5px;
+    }
+    #date {
+      font-size: 16px;
+      color: #888;
+      margin-top: 10px;
+    }
+    #current-task {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: rgba(255, 100, 150, 0.2);
+      border-radius: 20px;
+      display: inline-block;
+      color: #ff6699;
+      font-size: 14px;
+    }
+    
+    /* 전체 진행률 */
+    .main-progress {
+      margin-top: 25px;
+      padding: 0 20px;
+    }
+    .main-progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .main-progress-bar {
+      height: 6px;
+      background: #2a2a3a;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .main-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00aaff, #ff6699);
+      border-radius: 3px;
+      transition: width 1s;
+    }
+    
+    /* 채팅 */
+    .chat-card {
+      flex: 1;
+      background: #12121a;
+      border-radius: 15px;
+      padding: 20px;
+      border: 1px solid #2a2a3a;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 250px;
+      padding-right: 5px;
+    }
+    .chat-messages::-webkit-scrollbar {
+      width: 4px;
+    }
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+    .chat-msg {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      max-width: 80%;
+    }
+    .chat-msg.other {
+      background: #1e1e2e;
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .chat-msg.me {
+      background: linear-gradient(135deg, #00aaff, #0088cc);
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .chat-msg .name {
+      font-size: 11px;
+      color: #ff6699;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .chat-msg .msg-time {
+      font-size: 10px;
+      color: rgba(255,255,255,0.4);
+      margin-top: 5px;
+      display: block;
+    }
+    .chat-input-box {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      padding: 10px;
+      background: #1a1a25;
+      border-radius: 25px;
+    }
+    .chat-input-box input {
+      flex: 1;
+      background: none;
+      border: none;
+      color: white;
+      font-size: 14px;
+      padding: 8px;
+      outline: none;
+    }
+    .chat-input-box input::placeholder {
+      color: #555;
+    }
+    #chat-name {
+      max-width: 70px;
+      border-right: 1px solid #333;
+    }
+    .chat-send-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00aaff, #0088cc);
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    
+    /* 오른쪽: 메모 & 사진 */
+    .right-section {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .notes-card {
+      background: #12121a;
+      border-radius: 15px;
+      padding: 20px;
+      border: 1px solid #2a2a3a;
+    }
+    .note-item {
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border-left: 4px solid;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .note-item:hover {
+      transform: translateX(5px);
+    }
+    .note-item.red {
+      background: rgba(255, 100, 100, 0.15);
+      border-left-color: #ff6666;
+    }
+    .note-item.orange {
+      background: rgba(255, 180, 100, 0.15);
+      border-left-color: #ffaa55;
+    }
+    .note-item.green {
+      background: rgba(100, 255, 150, 0.15);
+      border-left-color: #66ff99;
+    }
+    .note-item.blue {
+      background: rgba(100, 150, 255, 0.15);
+      border-left-color: #6699ff;
+    }
+    .note-icon {
+      margin-right: 10px;
+    }
+    .note-title {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .note-content {
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+    }
+    
+    /* 사진 */
+    .photo-card {
+      background: #12121a;
+      border-radius: 15px;
+      padding: 20px;
+      border: 1px solid #2a2a3a;
+    }
+    .photo-grid {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      margin-top: 15px;
+    }
+    .photo-item {
+      width: 100px;
+      height: 100px;
+      border-radius: 12px;
+      background: #1e1e2e;
+      border: 2px dashed #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+    .photo-item:hover {
+      border-color: #00aaff;
+    }
+    .photo-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .photo-item.add {
+      font-size: 30px;
+      color: #444;
+    }
+    .photo-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .photo-btn {
+      padding: 10px 18px;
+      background: #1e1e2e;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #aaa;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .photo-btn:hover {
+      border-color: #00aaff;
+      color: #00aaff;
+    }
+    
+    /* 모달 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+    }
+    .modal-content {
+      background: #1a1a25;
+      padding: 30px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 400px;
+      border: 1px solid #333;
+    }
+    .modal-content h3 {
+      color: #fff;
+      margin-bottom: 20px;
+      font-weight: 500;
+    }
+    .modal-content input, .modal-content textarea {
+      width: 100%;
+      padding: 15px;
+      margin: 8px 0;
+      background: #12121a;
+      border: 1px solid #333;
+      border-radius: 10px;
+      color: white;
+      font-size: 16px;
+      font-family: inherit;
+    }
+    .modal-content input:focus, .modal-content textarea:focus {
+      outline: none;
+      border-color: #00aaff;
+    }
+    .modal-content textarea {
+      min-height: 100px;
+      resize: none;
+    }
+    .color-picker {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    .color-opt {
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    .color-opt:hover, .color-opt.selected {
+      border-color: #fff;
+      transform: scale(1.1);
+    }
+    .color-opt.blue { background: #00aaff; }
+    .color-opt.pink { background: #ff6699; }
+    .color-opt.green { background: #66ff99; }
+    .color-opt.orange { background: #ffaa55; }
+    .color-opt.purple { background: #aa66ff; }
+    .modal-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .modal-btn {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .modal-btn.save {
+      background: linear-gradient(135deg, #00aaff, #0088cc);
+      color: white;
+    }
+    .modal-btn.cancel {
+      background: #2a2a3a;
+      color: #aaa;
+    }
+    .modal-btn.delete {
+      background: #aa3333;
+      color: white;
+    }
+    
+    /* 이미지 확대 */
+    #img-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.95);
+      justify-content: center;
+      align-items: center;
+      z-index: 3000;
+      cursor: pointer;
+    }
+    #img-modal img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 10px;
+    }
+    
+    /* 회전 버튼 */
+    #rotate-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00aaff, #0088cc);
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0, 170, 255, 0.4);
+    }
+    
+    /* 세로 모드 */
+    @media (max-width: 1000px) {
+      .main-container {
+        grid-template-columns: 1fr;
+        padding: 15px;
+      }
+      #time {
+        font-size: 50px;
+      }
+      .header {
+        padding: 10px 15px;
+      }
+      .header-title {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <button id="rotate-btn">🔄</button>
+
+  <!-- 헤더 -->
+  <div class="header">
+    <div class="header-left">
+      <button class="menu-btn">☰</button>
+      <span class="header-title">TIMETABLE</span>
+    </div>
+    <div class="header-time" id="header-time">00:00</div>
+    <div class="header-right">
+      <span>📶</span>
+      <span>🔋 88%</span>
+      <span>🔔</span>
+    </div>
+  </div>
+
+  <!-- 메인 -->
+  <div class="main-container">
+    
+    <!-- 왼쪽: 스케줄 -->
+    <div class="schedule-section">
+      <div class="section-header">
+        <div class="section-title">SCHEDULE</div>
+        <div class="section-subtitle" id="today-date">WEDNESDAY, OCT 26</div>
+      </div>
+      <div class="timeline" id="schedule-list"></div>
+    </div>
+    
+    <!-- 가운데: 시계 & 채팅 -->
+    <div class="center-section">
+      <div class="clock-card">
+        <div id="time">00:00</div>
+        <div id="date">Loading...</div>
+        <div id="current-task">로딩중...</div>
+        
+        <div class="main-progress">
+          <div class="main-progress-label">
+            <span>오늘 진행률</span>
+            <span id="day-progress-text">0%</span>
+          </div>
+          <div class="main-progress-bar">
+            <div class="main-progress-fill" id="day-progress-bar"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="chat-card">
+        <div class="section-header">
+          <div class="section-title">💬 CHAT</div>
+        </div>
+        <div class="chat-messages" id="chat-box"></div>
+        <div class="chat-input-box">
+          <input type="text" id="chat-name" placeholder="이름">
+          <input type="text" id="chat-input" placeholder="메시지 입력...">
+          <button class="chat-send-btn" onclick="sendChat()">➤</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 오른쪽: 메모 & 사진 -->
+    <div class="right-section">
+      <div class="notes-card">
+        <div class="section-header">
+          <div class="section-title">NOTES & MEMOS</div>
+        </div>
+        <div id="notes-list">
+          <div class="note-item red" onclick="openNoteModal(0)">
+            <span class="note-icon">📝</span>
+            <span class="note-title">메모 1</span>
+            <div class="note-content" id="note-0">클릭해서 작성...</div>
+          </div>
+          <div class="note-item orange" onclick="openNoteModal(1)">
+            <span class="note-icon">🎤</span>
+            <span class="note-title">메모 2</span>
+            <div class="note-content" id="note-1">클릭해서 작성...</div>
+          </div>
+          <div class="note-item green" onclick="openNoteModal(2)">
+            <span class="note-icon">💬</span>
+            <span class="note-title">메모 3</span>
+            <div class="note-content" id="note-2">클릭해서 작성...</div>
+          </div>
+          <div class="note-item blue" onclick="openNoteModal(3)">
+            <span class="note-icon">✅</span>
+            <span class="note-title">메모 4</span>
+            <div class="note-content" id="note-3">클릭해서 작성...</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="photo-card">
+        <div class="section-header">
+          <div class="section-title">📷 PHOTOS</div>
+        </div>
+        <div class="photo-grid">
+          <div class="photo-item" id="photo-0" onclick="showBigImg(0)"></div>
+          <div class="photo-item" id="photo-1" onclick="showBigImg(1)"></div>
+          <div class="photo-item add" onclick="tryUpload()">+</div>
+        </div>
+        <div class="photo-btns">
+          <button class="photo-btn" onclick="tryUpload()">+ 추가</button>
+          <button class="photo-btn" onclick="tryDelete()">🗑 삭제</button>
+          <button class="photo-btn" onclick="shareLink()">🔗 공유</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 일정 모달 -->
+  <div id="schedule-modal" class="modal">
+    <div class="modal-content">
+      <h3 id="modal-title">일정 추가</h3>
+      <input type="time" id="input-start">
+      <input type="time" id="input-end">
+      <input type="text" id="input-task" placeholder="할 일 (이모지 가능 🏃💻)">
+      <div class="color-picker">
+        <div class="color-opt blue" data-color="blue" onclick="selectColor('blue')"></div>
+        <div class="color-opt pink" data-color="pink" onclick="selectColor('pink')"></div>
+        <div class="color-opt green" data-color="green" onclick="selectColor('green')"></div>
+        <div class="color-opt orange" data-color="orange" onclick="selectColor('orange')"></div>
+        <div class="color-opt purple" data-color="purple" onclick="selectColor('purple')"></div>
+      </div>
+      <div class="modal-btns">
+        <button class="modal-btn save" onclick="saveSchedule()">저장</button>
+        <button class="modal-btn cancel" onclick="closeModal()">취소</button>
+        <button class="modal-btn delete" id="delete-btn" onclick="deleteSchedule()" style="display:none;">삭제</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 노트 모달 -->
+  <div id="note-modal" class="modal">
+    <div class="modal-content">
+      <h3>메모 작성</h3>
+      <textarea id="note-input" placeholder="메모 내용..."></textarea>
+      <div class="modal-btns">
+        <button class="modal-btn save" onclick="saveNote()">저장</button>
+        <button class="modal-btn cancel" onclick="closeNoteModal()">취소</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 이미지 확대 -->
+  <div id="img-modal" onclick="closeImgModal()">
+    <img id="big-img" src="">
+  </div>
+
+  <script>
+    // Firebase
+    firebase.initializeApp({databaseURL:"https://toy-project-1e813-default-rtdb.firebaseio.com/"});
+    var db = firebase.database();
+    
+    // Cloudinary
+    var CLOUD_NAME = "dp4z6ootd";
+    var UPLOAD_PRESET = "toy project";
+    var PHOTO_PW = "1234";
+
+    // 데이터
+    var colors = ['blue', 'pink', 'green', 'orange', 'purple'];
+    var schedule = JSON.parse(localStorage.getItem('mySchedule')) || [
+      { start: "06:00", end: "08:00", task: "🏃 운동 + 밥", color: "blue" },
+      { start: "08:00", end: "09:30", task: "💻 ZGA 세팅", color: "blue" },
+      { start: "09:30", end: "10:10", task: "🚗 드라이브", color: "pink" },
+      { start: "10:10", end: "11:00", task: "📞 쿠팡이츠 영업", color: "green" },
+      { start: "11:00", end: "14:00", task: "🔮 밥 + 사주 세팅", color: "orange" },
+      { start: "14:00", end: "17:00", task: "📞 쿠팡이츠 영업", color: "green" },
+      { start: "17:00", end: "22:00", task: "⚡ 전기기능사 학원", color: "purple" },
+      { start: "22:00", end: "23:00", task: "🍜 야식 + 수면 준비", color: "orange" },
+      { start: "23:00", end: "06:00", task: "😴 수면", color: "blue" }
+    ];
+    var board = JSON.parse(localStorage.getItem('myBoard')) || {images:[]};
+    var notes = JSON.parse(localStorage.getItem('myNotes')) || ['','','',''];
+    var editIndex = -1;
+    var editNoteIndex = -1;
+    var selectedColor = 'blue';
+
+    // 시간 함수
+    function timeToMinutes(t) {
+      var p = t.split(":").map(Number);
+      return p[0] * 60 + p[1];
+    }
+
+    function getCurrentIndex() {
+      var now = new Date();
+      var nowMin = now.getHours() * 60 + now.getMinutes();
+      for (var i = 0; i < schedule.length; i++) {
+        var startMin = timeToMinutes(schedule[i].start);
+        var endMin = timeToMinutes(schedule[i].end);
+        if (endMin < startMin) {
+          if (nowMin >= startMin || nowMin < endMin) return i;
+        } else {
+          if (nowMin >= startMin && nowMin < endMin) return i;
+        }
+      }
+      return -1;
+    }
+
+    function getProgress(index) {
+      if (index === -1) return 0;
+      var now = new Date();
+      var nowMin = now.getHours() * 60 + now.getMinutes();
+      var startMin = timeToMinutes(schedule[index].start);
+      var endMin = timeToMinutes(schedule[index].end);
+      if (endMin < startMin) endMin += 24 * 60;
+      var adjustedNow = nowMin;
+      if (nowMin < startMin) adjustedNow += 24 * 60;
+      var total = endMin - startMin;
+      var elapsed = adjustedNow - startMin;
+      return Math.min(100, Math.round((elapsed / total) * 100));
+    }
+
+    function getDayProgress() {
+      var now = new Date();
+      var mins = now.getHours() * 60 + now.getMinutes();
+      return Math.round((mins / 1440) * 100);
+    }
+
+    // 시계 업데이트
+    function updateClock() {
+      var now = new Date();
+      var h = String(now.getHours()).padStart(2, '0');
+      var m = String(now.getMinutes()).padStart(2, '0');
+      var s = String(now.getSeconds()).padStart(2, '0');
+      
+      document.getElementById('time').textContent = h + ':' + m;
+      document.getElementById('header-time').textContent = h + ':' + m;
+      
+      var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      var dateStr = days[now.getDay()] + ', ' + months[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear();
+      document.getElementById('date').textContent = dateStr;
+      document.getElementById('today-date').textContent = days[now.getDay()].toUpperCase() + ', ' + months[now.getMonth()].toUpperCase() + ' ' + now.getDate();
+      
+      var idx = getCurrentIndex();
+      var task = idx >= 0 ? schedule[idx].task : '일정 없음';
+      document.getElementById('current-task').textContent = '▶ ' + task;
+      
+      var dayProg = getDayProgress();
+      document.getElementById('day-progress-text').textContent = dayProg + '%';
+      document.getElementById('day-progress-bar').style.width = dayProg + '%';
+    }
+
+    // 스케줄 렌더링
+    function renderSchedule() {
+      var list = document.getElementById('schedule-list');
+      var currentIndex = getCurrentIndex();
+      list.innerHTML = '';
+      
+      for(var i = 0; i < schedule.length; i++) {
+        var item = schedule[i];
+        var progress = (i === currentIndex) ? getProgress(i) : 0;
+        var colorClass = item.color || 'blue';
+        
+        var div = document.createElement('div');
+        div.className = 'time-slot';
+        div.innerHTML = 
+          '<div class="time-label">' + item.start.split(':')[0] + ':00</div>' +
+          '<div class="schedule-item ' + colorClass + (i === currentIndex ? ' active' : '') + '" data-idx="' + i + '">' +
+            '<div class="item-title">' + item.task + '</div>' +
+            '<div class="item-time">' + item.start + ' - ' + item.end + '</div>' +
+            (i === currentIndex ? '<div class="progress-bar"><div class="progress-fill" style="width:' + progress + '%"></div></div>' : '') +
+          '</div>';
+        list.appendChild(div);
+      }
+      
+      // 클릭 이벤트
+      document.querySelectorAll('.schedule-item').forEach(function(el){
+        el.onclick = function(){
+          var idx = parseInt(this.getAttribute('data-idx'));
+          openEditModal(idx);
+        };
+      });
+    }
+
+    // 색상 선택
+    function selectColor(color) {
+      selectedColor = color;
+      document.querySelectorAll('.color-opt').forEach(function(el){
+        el.classList.remove('selected');
+      });
+      document.querySelector('.color-opt.' + color).classList.add('selected');
+    }
+
+    // 일정 모달
+    function openAddModal() {
+      editIndex = -1;
+      selectedColor = 'blue';
+      document.getElementById('modal-title').textContent = '일정 추가';
+      document.getElementById('input-start').value = '';
+      document.getElementById('input-end').value = '';
+      document.getElementById('input-task').value = '';
+      document.getElementById('delete-btn').style.display = 'none';
+      selectColor('blue');
+      document.getElementById('schedule-modal').style.display = 'flex';
+    }
+
+    function openEditModal(index) {
+      editIndex = index;
+      var item = schedule[index];
+      selectedColor = item.color || 'blue';
+      document.getElementById('modal-title').textContent = '일정 수정';
+      document.getElementById('input-start').value = item.start;
+      document.getElementById('input-end').value = item.end;
+      document.getElementById('input-task').value = item.task;
+      document.getElementById('delete-btn').style.display = 'inline-block';
+      selectColor(selectedColor);
+      document.getElementById('schedule-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('schedule-modal').style.display = 'none';
+    }
+
+    function saveSchedule() {
+      var start = document.getElementById('input-start').value;
+      var end = document.getElementById('input-end').value;
+      var task = document.getElementById('input-task').value;
+      if (!start || !end || !task) { alert('모든 항목을 입력하세요'); return; }
+      
+      var newItem = { start:start, end:end, task:task, color:selectedColor };
+      if (editIndex === -1) {
+        schedule.push(newItem);
+      } else {
+        schedule[editIndex] = newItem;
+      }
+      schedule.sort(function(a, b){ return timeToMinutes(a.start) - timeToMinutes(b.start); });
+      localStorage.setItem('mySchedule', JSON.stringify(schedule));
+      closeModal();
+      renderSchedule();
+    }
+
+    function deleteSchedule() {
+      if (editIndex !== -1) {
+        schedule.splice(editIndex, 1);
+        localStorage.setItem('mySchedule', JSON.stringify(schedule));
+        closeModal();
+        renderSchedule();
+      }
+    }
+
+    // 노트
+    function loadNotes() {
+      for(var i = 0; i < 4; i++) {
+        var el = document.getElementById('note-' + i);
+        el.textContent = notes[i] || '클릭해서 작성...';
+      }
+    }
+
+    function openNoteModal(idx) {
+      editNoteIndex = idx;
+      document.getElementById('note-input').value = notes[idx] || '';
+      document.getElementById('note-modal').style.display = 'flex';
+    }
+
+    function closeNoteModal() {
+      document.getElementById('note-modal').style.display = 'none';
+    }
+
+    function saveNote() {
+      notes[editNoteIndex] = document.getElementById('note-input').value;
+      localStorage.setItem('myNotes', JSON.stringify(notes));
+      loadNotes();
+      closeNoteModal();
+    }
+
+    // 사진
+    function loadBoard() {
+      for(var i = 0; i < 2; i++) {
+        var el = document.getElementById('photo-' + i);
+        if(board.images[i]) {
+          el.innerHTML = '<img src="' + board.images[i] + '">';
+          el.classList.remove('add');
+        } else {
+          el.innerHTML = '';
+        }
+      }
+    }
+
+    function tryUpload() {
+      var pw = prompt('비밀번호를 입력하세요');
+      if(pw === PHOTO_PW) {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = function(e) {
+          var file = e.target.files[0];
+          if(!file) return;
+          if(board.images.length >= 2) { alert('최대 2장까지만 가능합니다'); return; }
+          var formData = new FormData();
+          formData.append('file', file);
+          formData.append('upload_preset', UPLOAD_PRESET);
+          fetch('https://api.cloudinary.com/v1_1/' + CLOUD_NAME + '/image/upload', {
+            method: 'POST', body: formData
+          }).then(function(res){ return res.json(); })
+          .then(function(data){
+            if(data.secure_url) {
+              board.images.push(data.secure_url);
+              localStorage.setItem('myBoard', JSON.stringify(board));
+              loadBoard();
+            }
+          }).catch(function(){ alert('업로드 실패'); });
+        };
+        input.click();
+      } else if(pw !== null) {
+        alert('비밀번호가 틀렸습니다');
+      }
+    }
+
+    function tryDelete() {
+      if(board.images.length === 0) { alert('삭제할 사진이 없습니다'); return; }
+      var pw = prompt('삭제하려면 비밀번호를 입력하세요');
+      if(pw === PHOTO_PW) {
+        var idx = prompt('삭제할 사진 번호 (1 또는 2)');
+        if(idx === '1' && board.images.length >= 1) {
+          board.images.splice(0, 1);
+          localStorage.setItem('myBoard', JSON.stringify(board));
+          loadBoard();
+        } else if(idx === '2' && board.images.length >= 2) {
+          board.images.splice(1, 1);
+          localStorage.setItem('myBoard', JSON.stringify(board));
+          loadBoard();
+        } else if(idx !== null) {
+          alert('잘못된 번호입니다');
+        }
+      } else if(pw !== null) {
+        alert('비밀번호가 틀렸습니다');
+      }
+    }
+
+    function showBigImg(idx) {
+      if(board.images[idx]) {
+        document.getElementById('big-img').src = board.images[idx];
+        document.getElementById('img-modal').style.display = 'flex';
+      }
+    }
+
+    function closeImgModal() {
+      document.getElementById('img-modal').style.display = 'none';
+    }
+
+    function shareLink() {
+      var url = window.location.href;
+      if(navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(function(){
+          alert('링크가 복사되었습니다!\n' + url);
+        });
+      } else {
+        prompt('아래 링크를 복사하세요:', url);
+      }
+    }
+
+    // 채팅
+    function loadChats() {
+      db.ref('chats').orderByChild('timestamp').limitToLast(30).on('value', function(snapshot){
+        var chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = '';
+        var chats = [];
+        snapshot.forEach(function(child){ chats.push(child.val()); });
+        var myName = document.getElementById('chat-name').value.trim() || '익명';
+        chats.forEach(function(chat){
+          var div = document.createElement('div');
+          var isMe = (chat.name === myName);
+          div.className = 'chat-msg ' + (isMe ? 'me' : 'other');
+          var date = new Date(chat.timestamp);
+          var timeStr = date.getHours() + ':' + String(date.getMinutes()).padStart(2,'0');
+          div.innerHTML = 
+            (isMe ? '' : '<span class="name">' + chat.name + '</span>') +
+            chat.message +
+            '<span class="msg-time">' + timeStr + '</span>';
+          chatBox.appendChild(div);
+        });
+        chatBox.scrollTop = chatBox.scrollHeight;
+      });
+    }
+
+    document.getElementById('chat-input').addEventListener('keypress', function(e){
+      if(e.key === 'Enter') sendChat();
+    });
+
+    function sendChat() {
+      var name = document.getElementById('chat-name').value.trim() || '익명';
+      var msg = document.getElementById('chat-input').value.trim();
+      if(!msg) return;
+      db.ref('chats').push({
+        name: name,
+        message: msg,
+        timestamp: Date.now()
+      });
+      document.getElementById('chat-input').value = '';
+    }
+
+    // 회전
+    document.getElementById('rotate-btn').addEventListener('click', function(){
+      document.body.classList.toggle('vertical-mode');
+    });
+
+    // 초기화
+    loadNotes();
+    loadBoard();
+    loadChats();
+    renderSchedule();
+    updateClock();
+    setInterval(updateClock, 1000);
+    setInterval(renderSchedule, 60000);
+  </script>
+</body>
+</html>
